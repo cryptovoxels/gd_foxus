@@ -1,0 +1,54 @@
+version: '2.1'
+
+jobs:
+  build:
+    docker:
+      - image: bitriseio/android-ndk:latest
+    steps:
+      - run: mkdir /tmp/workspace
+      - run: pip install pathlib
+      - run: apt install scons -y
+      - run: apt install libudev1 libudev-dev -y
+      - run: apt-get install dpkg -y
+      - run: git clone https://${GITHUB_TOKEN}@github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git gd_foxus
+      - run: cd gd_foxus && git reset --hard ${CIRCLE_SHA1} && git submodule update --recursive --init
+      - run: cd gd_foxus && curl -k https://downloads.tuxfamily.org/godotengine/3.5/godot-lib.3.5.stable.release.aar --output godot-lib.3.5.stable.release.aar
+      - run: cd gd_foxus && ./build_godot_bindings.sh
+      - run: |
+            cd gd_foxus
+            update-alternatives --set java /usr/lib/jvm/java-11-openjdk-amd64/bin/java
+            export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64/
+            export PATH=$PATH:$JAVA_PATH
+            ./build.sh
+            cp gd_foxus.zip /tmp/workspace/
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - gd_foxus.zip
+  publish-github-release:
+    docker:
+      - image: cibuilds/github:0.13
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /tmp/workspace
+      - run: ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} ${CIRCLE_TAG} /tmp/workspace
+
+workflows:
+  build-and-release:
+    jobs:
+      - build:
+          name: "Build"
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v[0-9]+(\.[0-9]+)*$/
+      - publish-github-release:
+          name: "Publish Release"
+          requires: [Build]
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v[0-9]+(\.[0-9]+)*$/

@@ -1,0 +1,7 @@
+.sconsign.dblite
+.vscode/
+build
+install
+gd_foxus.zip
+logs
+*.so

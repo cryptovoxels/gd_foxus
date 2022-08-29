@@ -1,0 +1,18 @@
+[general]
+
+singleton=false
+load_once=true
+symbol_prefix="godot_"
+reloadable=false
+
+[entry]
+
+Android.arm64-v8a="res://addons/gd_foxus/android/arm64-v8a/libgd_foxus.so"
+OSX.64="res://addons/gd_foxus/osx/libgd_foxus.dylib"
+X11.64="res://addons/gd_foxus/linux/libgd_foxus.so"
+
+[dependencies]
+
+Android.arm64-v8a=[  ]
+OSX.64=[  ]
+X11.64=[  ]

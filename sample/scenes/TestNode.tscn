@@ -1,0 +1,125 @@
+[gd_scene load_steps=8 format=2]
+
+[ext_resource path="res://scenes/Spatial.gd" type="Script" id=1]
+[ext_resource path="res://addons/gd_foxus/gd_foxus.gdns" type="Script" id=2]
+[ext_resource path="res://scenes/TestNode.gd" type="Script" id=4]
+[ext_resource path="res://scenes/VBoxContainer.gd" type="Script" id=5]
+
+[sub_resource type="QuadMesh" id=1]
+size = Vector2( 2.56, 0.96 )
+
+[sub_resource type="Shader" id=2]
+code = "shader_type spatial;
+
+const int RGB = 0;
+const int YUV = 1;
+
+uniform int colorspace = 0;
+uniform sampler2D image;
+
+const ivec2 yuv_image_size = ivec2(2560, 1920);
+
+vec3 sample_rgb_image(vec2 uv) {
+	return texture(image, uv).rgb;
+}
+
+float extract_y(vec2 uv) {
+	vec2 image_size = vec2(float(yuv_image_size.x), float(yuv_image_size.y) / 2.0);
+	ivec2 absolute_coordinates = ivec2(uv * image_size);
+
+	return texelFetch(image, absolute_coordinates, 0).r;
+}
+
+ivec2 get_absolute_coordinates_for_half_width_image(vec2 uv) {
+	vec2 image_size = vec2(yuv_image_size / 2);
+	ivec2 absolute_coordinates = ivec2(uv * image_size);
+
+	if (absolute_coordinates.y % 2 == 1) {
+		absolute_coordinates.x += yuv_image_size.x / 2;
+	}
+	
+	absolute_coordinates.y /= 2;
+	
+	return absolute_coordinates;
+}
+
+float extract_u(vec2 uv) {
+	ivec2 absolute_coordinates = get_absolute_coordinates_for_half_width_image(uv);
+	absolute_coordinates.y += yuv_image_size.y / 2;
+	
+	return texelFetch(image, absolute_coordinates, 0).r;
+}
+
+float extract_v(vec2 uv) {
+	ivec2 absolute_coordinates = get_absolute_coordinates_for_half_width_image(uv);
+	absolute_coordinates.y += yuv_image_size.y * 3 / 4;
+	
+	return texelFetch(image, absolute_coordinates, 0).r;
+}
+
+vec3 yuv_to_rgb(float y, float u, float v) {
+    y -= 16.0 / 255.0;
+    u -= 0.5;
+    v -= 0.5;
+
+    float r = clamp(y + 1.402 * v, 0.0, 1.0);
+    float g = clamp(y - 0.34414 * u - 0.71414 * v, 0.0, 1.0);
+    float b = clamp(y + 1.772 * u, 0.0, 1.0);
+	
+	return vec3(r, g, b);
+}
+
+vec3 sample_yuv_image(vec2 uv) {
+	float y = extract_y(uv);
+	float u = extract_u(uv);
+	float v = extract_v(uv);
+	
+	return yuv_to_rgb(y, u, v);
+}
+
+void fragment() {
+	if (colorspace == RGB) {
+		ALBEDO = sample_rgb_image(UV);
+	} else if (colorspace == YUV) {
+		ALBEDO = sample_yuv_image(UV);
+	}
+}"
+
+[sub_resource type="ShaderMaterial" id=3]
+shader = SubResource( 2 )
+shader_param/colorspace = 0
+
+[node name="Scene" type="Node"]
+script = ExtResource( 4 )
+
+[node name="Control" type="Control" parent="."]
+anchor_bottom = 1.0
+margin_right = 300.0
+
+[node name="ColorRect" type="ColorRect" parent="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color( 0.396078, 0.462745, 0.513726, 1 )
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+script = ExtResource( 5 )
+
+[node name="Spatial" type="Spatial" parent="."]
+script = ExtResource( 1 )
+
+[node name="ARVROrigin" type="ARVROrigin" parent="Spatial"]
+
+[node name="ARVRCamera" type="ARVRCamera" parent="Spatial/ARVROrigin"]
+
+[node name="MeshInstance" type="MeshInstance" parent="Spatial/ARVROrigin/ARVRCamera"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.11039 )
+mesh = SubResource( 1 )
+skeleton = NodePath("")
+material/0 = SubResource( 3 )
+
+[node name="GDFoxus" type="Node" parent="."]
+script = ExtResource( 2 )
